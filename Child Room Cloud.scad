@@ -5,8 +5,8 @@ wall_thickness = 8.0;
 $fn = $preview ? 20 : 100;
 wall_screw_radius = 4;
 mold_depth = 0.8;
+mold_width = 3;
 mold_extra_depth = 0.2;
-backplate_height = 40;
 
 module create_screw_hole(screw_hat_radius, screw_radius, screw_hat_angle, screw_hat_distance, screw_distance) {
     screw_scale = screw_radius/screw_hat_radius;
@@ -22,9 +22,9 @@ module create_screw_hole(screw_hat_radius, screw_radius, screw_hat_angle, screw_
 module create_cloud() {
     union() {
         translate([-40, 25, 0]) circle(25);
-        translate([-12, 40, 0]) circle(25);
+        translate([-19, 42, 0]) circle(25);
         //translate([0, 45, 0]) circle(10);
-        translate([12.5, 50, 0]) circle(15);
+        translate([10, 45, 0]) circle(20);
         //translate([20, 30, 0]) circle(7);
         translate([-20, 15, 0]) square([45, 23]);
         translate([35, 31, 0]) circle(20);
@@ -53,25 +53,27 @@ module create_sun_beam() {
     ]);    
 }
 
-network_screw_radius = 3.5 / 2;
-network_square_height = 22.5;
-network_square_width = 17;
-network_distance_between_square_and_screw_edge = 3;
-network_screw_offset = network_square_height / 2 + network_distance_between_square_and_screw_edge + network_screw_radius;
+network_screw_radius = 3.3 / 2;
+network_square_margin = [1.2, 6.6];
+network_front_size = [19.1, 35.45];
+network_square_size = [for (i = [0:1]) network_front_size[i]-network_square_margin[i]*2];
+network_screw_margin_y = 1.6;
+network_screw_offset_y = network_front_size[1] / 2 - network_screw_margin_y - network_screw_radius;
+//network_screw_offset = [for (i = network_distance_between_square_and_screw_edge) network_square_height / 2 + i + network_screw_radius];
 
 
 module create_network_cutout() {
-    // TODO: Verifiera med bättre skujtmått
     union() {
-        square([network_square_width, network_square_height], center = true);
+        square(network_square_size, center = true);
         
-        translate([0, network_screw_offset, 0]) circle(r = network_screw_radius);
-        translate([0, -network_screw_offset, 0]) circle(r = network_screw_radius);
+        translate([0, network_screw_offset_y, 0]) circle(r = network_screw_radius);
+        translate([0, -network_screw_offset_y, 0]) circle(r = network_screw_radius);
     }
 }
 
-module hexagon(r, offset = 30) {
+module hexagon(d, offset = 30) {
     step = 360 / 6;
+    r = (d / 2) / cos(step / 2);
     polygon(
         [for (i = [0:5]) [sin(step * i + offset) * r, cos(step * i + offset) * r]]
             );
@@ -80,20 +82,20 @@ module hexagon(r, offset = 30) {
 
 module create_network_backplate_cutout() {
     union() {
-        square([network_square_width, network_square_height], center = true);
+        square(network_square_size, center = true);
         
-        translate([0, network_screw_offset, 0]) hexagon(r = 5);
-        translate([0, -network_screw_offset, 0]) hexagon(r = 5);
+        translate([0, network_screw_offset_y, 0]) hexagon(d = 6);
+        translate([0, -network_screw_offset_y, 0]) hexagon(d = 6);
 
     }
     
 }
 
-network_port_offset_x = -29;
+network_port_offset_x = -32;
 network_port_offset_y = 24;
 network_port_offset_per_port = 21;
 network_ports_count = 4;
-    network_ports_width = network_port_offset_per_port * (network_ports_count - 1);
+network_ports_width = network_port_offset_per_port * (network_ports_count - 1);
 
 module per_network_port() {
     for (i = [1:network_ports_count]) {
@@ -119,15 +121,16 @@ wall_cutout_hole_distance = 12;
 module create_wall_cutout(r = 5, hollow = 0, include_inner = true) {
     hole_distance = wall_cutout_hole_distance;
     cut_distance = 6;
+    height_offset = network_front_size[1]/2;
     translate([network_port_offset_x, network_port_offset_y, 0]) polygon([
         [-hole_distance, -r],
         [-hole_distance, r],
-        [-cut_distance, backplate_height/2],
-        [network_ports_width + cut_distance, backplate_height / 2],
+        [-cut_distance, height_offset],
+        [network_ports_width + cut_distance, height_offset],
         [network_ports_width + hole_distance, r],
         [network_ports_width + hole_distance, -r],
-        [network_ports_width + cut_distance, -backplate_height / 2],
-        [-cut_distance, -backplate_height / 2],
+        [network_ports_width + cut_distance, -height_offset],
+        [-cut_distance, -height_offset],
     ]);
     /*per_network_port() {
         translate([-5, 10, 0]) create_hollow_circle(r = r, hollow = hollow);
@@ -243,11 +246,11 @@ module create_template_frame() {
 }
 
 
-if (which == 0) {
+if (which == 0) { // Base
     create_union();
-} else if (which == 1) {
+} else if (which == 1) { // Sun modifier
     create_sun_material();
-} else if (which == 2) {
+} else if (which == 2) { 
     create_network_ports();
 } else if (which == 3) {
     difference() {
@@ -255,26 +258,32 @@ if (which == 0) {
         create_network_ports();
     }
     # create_positioned_sun();
-} else if (which == 4) {
+} else if (which == 4) { // Only the cloud
     create_cloud();
 } else if (which == 5) {
     create_network_backplate_cutout();
-} else if (which == 6) {
-    template_width = 3;
+} else if (which == 6) { // Cutout mold
     linear_extrude(mold_depth) difference() {
         create_wall_cutout(r = 0.5);
         create_wall_fastener(r = 0.5);
-        offset(delta = -template_width) create_wall_cutout(r = 0.5);
+        offset(delta = -mold_width) create_wall_cutout(r = 0.5);
     }
     translate([0, 0, mold_depth]) linear_extrude(mold_extra_depth) intersection() {
         create_wall_cutout(r = 0.5);
         difference() {
             create_wall_fastener(r = 5, hollow = 4.5);
-            offset(delta = -template_width) create_wall_cutout(r = 0.5);
+            offset(delta = -mold_width) create_wall_cutout(r = 0.5);
         }
         /*difference() {
             create_wall_cutout(r = 5, hollow = 4.5, include_inner = false);
             create_wall_cutout(r = 2.5);
         }*/
+    }
+} else if (which == 7) { // How it looks with network ports attached
+    difference() {
+        create_cloud();
+        # per_network_port() {
+            square(network_front_size, center = true);
+        }
     }
 }
