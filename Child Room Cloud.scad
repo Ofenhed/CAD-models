@@ -7,6 +7,7 @@ wall_screw_radius = 4;
 mold_depth = 0.8;
 mold_width = 3;
 mold_extra_depth = 0.2;
+network_ports_count = 4;
 
 module create_screw_hole(screw_hat_radius, screw_radius, screw_hat_angle, screw_hat_distance, screw_distance) {
     screw_scale = screw_radius/screw_hat_radius;
@@ -21,15 +22,34 @@ module create_screw_hole(screw_hat_radius, screw_radius, screw_hat_angle, screw_
 
 module create_cloud() {
     union() {
-        translate([-40, 25, 0]) circle(25);
-        translate([-19, 42, 0]) circle(25);
-        //translate([0, 45, 0]) circle(10);
-        translate([10, 45, 0]) circle(20);
-        //translate([20, 30, 0]) circle(7);
-        translate([-20, 15, 0]) square([45, 23]);
-        translate([35, 31, 0]) circle(20);
-        translate([55, 20, 0]) circle(20);
-        translate([-40, 0, 0]) square([95, 15]);
+        if (network_ports_count == 4) {
+            translate([-40, 25, 0]) circle(25);
+            translate([-19, 42, 0]) circle(25);
+            //translate([0, 45, 0]) circle(10);
+            translate([10, 45, 0]) circle(20);
+            //translate([20, 30, 0]) circle(7);
+            translate([-20, 15, 0]) square([45, 23]);
+            translate([35, 31, 0]) circle(20);
+            translate([55, 20, 0]) circle(20);
+            translate([-40, 0, 0]) square([95, 15]);
+        } else if (network_ports_count == 1) {
+            translate([-10, 2, 0]) {
+                translate([-45, 11, 0]) circle(11);
+                translate([-34, 28, 0]) circle(15);
+                translate([-35, 42, 0]) circle(10);
+                //translate([0, 45, 0]) circle(10);
+                translate([-20, 38, 0]) circle(8);
+                translate([-11, 43, 0]) circle(6);
+                //translate([20, 30, 0]) circle(7);
+                translate([-30, 15, 0]) square([20, 23]);
+                translate([-5, 31, 0]) circle(12);
+                //translate([0, 20, 0]) circle(12);
+                translate([-4, 14, 0]) circle(14);
+                translate([-45, 0, 0]) square([40, 15]);
+            }
+        } else {
+            assert(false, "Only 1 or 4 network ports are mapped");
+        }
     }
 }
 
@@ -94,7 +114,6 @@ module create_network_backplate_cutout() {
 network_port_offset_x = -32;
 network_port_offset_y = 24;
 network_port_offset_per_port = 21;
-network_ports_count = 4;
 network_ports_width = network_port_offset_per_port * (network_ports_count - 1);
 
 module per_network_port() {
@@ -198,7 +217,9 @@ module create_union() {
                 difference() {
                     union() {
                         create_cloud();
-                        create_positioned_sun();
+                        if (network_ports_count == 4) {
+                            create_positioned_sun();
+                        }
                     }
                     create_network_ports();
                 }
