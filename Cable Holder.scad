@@ -27,7 +27,7 @@ module outer() {
         [0, corner_distance]
         ]);
     } else {
-        width = screw_radius * 2 + screw_margin * 2 + left_cable_radius * 2 + right_cable_radius * 2 + wall_thickness;     
+        width = screw_radius * 2 + screw_margin * 2 + left_cable_radius * 2 + right_cable_radius * 2 + wall_thickness;
         outer_radius = right_cable_radius + wall_thickness;
         bounds = [
             [0, 0],
