@@ -29,21 +29,25 @@ print_moon = true;
 moon_radius = 10.0;
 moon_circle_offset = 1.0;
 moon_how_much = -0.45;
-moon_thickness = [0.2, 0.2, 0.4]; // on, off, on...
+moon_thickness = [ 0.2, 0.2, 0.4 ]; // on, off, on...
 sun_rays_count = 15;
 sun_ray_overlap = 0.5;
 sun_scale = 2.2;
 
+hang_lock_screw_diameter = 0; // TODO
+hang_screw_holes_offset = [-63, 15];
+hang_screw_offset_y = 20;
+
 network_screw_radius = 3.3 / 2; // Actual: 2.9mm
 network_square_margin = [ 1.2, 6.6 ];
 network_front_size = [ 19.1, 35.45 ];
-network_square_size = [ 16.75, 22.4 ];//[for (i = [0:1]) network_front_size[i] - network_square_margin[i] * 2];
+network_square_size = [ 16.75, 22.4 ]; //[for (i = [0:1]) network_front_size[i] - network_square_margin[i] * 2];
 network_screw_margin_y = 1.6;
 network_screw_offset_y = network_front_size[1] / 2 - network_screw_margin_y - network_screw_radius;
 
 network_square_nut_diameter = 5.4 + 0.3;
 network_square_nut_slide_angle = 30;
-network_square_nut_depth = 1.8; // 2.3 + 0.3 for previous print
+network_square_nut_depth = 2.3; // 2.3 + 0.3 for previous print
 network_square_nut_offset_z = [ 2.5, 2.5 ];
 
 network_port_offset = [ -27, 24 ];
@@ -84,7 +88,7 @@ function cloud_find_most(parts, left, i = 0, leftmost = 0) =
         : cloud_find_most(parts, left, i + 1,
                           (parts[i][0] - parts[i][2] < parts[leftmost][0] - parts[leftmost][2]) == left ? i : leftmost);
 
-module cloud_from(parts)
+module cloud_from(parts, flat_bottom=true)
 {
     union()
     {
@@ -93,10 +97,14 @@ module cloud_from(parts)
             assert(len(i) == 3, "Invalid cloud part");
             translate([ i[0], i[1] + i[2], 0 ]) circle(r = i[2]);
         }
-        leftmost = cloud_find_most(parts, true);
-        rightmost = cloud_find_most(parts, false);
-        polygon(
-            [[leftmost [0], 0], [leftmost [0], leftmost [2]], [rightmost [0], rightmost [2]], [rightmost [0], 0], ]);
+        polygon([for (p = parts) [p[0], p[1] + p[2]]]);
+        if (flat_bottom)
+        {
+            leftmost = cloud_find_most(parts, true);
+            rightmost = cloud_find_most(parts, false);
+            polygon(
+                [[leftmost [0], 0], [leftmost [0], leftmost [2]], [rightmost [0], rightmost [2]], [rightmost [0], 0], ]);
+        }
     }
 }
 
@@ -105,11 +113,10 @@ module create_cloud()
     if (network_ports_count == 4)
     {
         cloud_from([
-            [ -40, 0, 25 ],
-            [ -19, 27, 25 ],
-            [ 10, 25, 20 ],
             [ -10, 0, 20 ],
-            [ 10, 0, 20 ],
+            [ -19, 27, 25 ],
+            [ -40, 0, 25 ],
+            [ 10, 25, 20 ],
             [ 35, 11, 20 ],
             [ 55, 0, 20 ],
         ]);
@@ -119,12 +126,16 @@ module create_cloud()
         translate([ -10, 2, 0 ])
         {
             cloud_from([
-                [ -55, 0, 16 ],
-                [ -40, 0, 25 ],
-                [ -19, 11, 25 ],
-                [ 10, 0, 25 ],
-                [ 30, 0, 15 ],
-            ]);
+                [ -12, -2, 15],
+                [ -16, 16, 20 ],
+                [ -40, 15, 14 ],
+                [ -55, 2, 18 ],
+                [-30, -3, 18],
+                [ 26, 5, 15 ],
+                [ 8, 2, 14 ],
+                [ 16, 22, 11 ],
+                [ 5, 29, 11 ],
+            ], flat_bottom=false);
         }
     }
     else
@@ -161,7 +172,7 @@ module create_network_cutout()
 {
     union()
     {
-        square(network_square_size + [printer_margin_xy, printer_margin_xy] * 2, center = true);
+        square(network_square_size + [ printer_margin_xy, printer_margin_xy ] * 2, center = true);
 
         translate([ 0, network_screw_offset_y, 0 ]) circle(r = network_screw_radius);
         translate([ 0, -network_screw_offset_y, 0 ]) circle(r = network_screw_radius);
@@ -170,7 +181,9 @@ module create_network_cutout()
 
 function hexagon_distance(d) = (d / 2) / cos(360 / 12);
 
-function n_agon(sides, offset, d) = let (step = 360 / sides, r = hexagon_distance(d)) [for (i = [1:sides])[sin(step * i + offset) * r, cos(step * i + offset) * r]];
+function n_agon(sides, offset, d) =
+    let(step = 360 / sides,
+        r = hexagon_distance(d))[for (i = [1:sides])[sin(step * i + offset) * r, cos(step *i + offset) * r]];
 
 function hexagon(nut_diameter, offset = 30) = n_agon(sides = 6, offset = offset, d = nut_diameter);
 
@@ -182,8 +195,7 @@ module hexagon_screw(nut_diameter, screw_diameter, nut_depth, screw_depth, offse
     rotate(offset - 30) translate([ 0, 0, nut_depth ])
     {
         smaller_pol = [for (i = [ 1, 2, 4, 5 ]) pol[i]];
-        linear_extrude(printer_margin_z)
-            polygon(smaller_pol);
+        linear_extrude(printer_margin_z) polygon(smaller_pol);
         square_side = min([for (p = smaller_pol) min(abs(p.x), abs(p.y))]) * 2;
         translate([ 0, 0, printer_margin_z ])
         {
@@ -218,14 +230,39 @@ module create_network_ports()
     per_network_port() create_network_cutout();
 }
 
-hidden_screw_holes_offsets = [for (i = [0:1]) let (offset_sign = 1 + 2 * (i - 1)) [hidden_screws_ports_distance[i] * offset_sign + i * network_ports_width + network_port_offset[0], hidden_screws_offset_y[i] + network_port_offset[1]]];
+hidden_screw_holes_offsets = [for (i = [0:1]) let(
+    offset_sign =
+        1 +
+        2 * (i - 1))[hidden_screws_ports_distance[i] * offset_sign + i * network_ports_width + network_port_offset[0],
+                     hidden_screws_offset_y[i] + network_port_offset[1]]];
 echo(hidden_screw_holes_offsets);
+
+module hang_on_screw_hole(r_max, r_min, height) {
+    union() {
+        circle(r = r_max);
+        translate([0, height, 0]) circle(r = r_min);
+        # translate([-r_min, 0, 0]) square(size = [r_min * 2, height], center = false);
+    }
+}
+
+module teardrop_hole(r, angle) {
+    union() {
+        circle(r = r);
+        x = sin(angle) * r;
+        y = cos(angle) * r;
+        t_y = y + x * tan(angle);
+        # polygon([
+            [x, y],
+            [-x, y],
+            [0, t_y],
+        ]);
+    }
+}
 
 // 3D
 module create_hidden_screw_holes()
 {
-    assert(hidden_screws_hat_thickness + hidden_screws_depth + 0.6 < total_model_height,
-           "The screw doesn't fit");
+    assert(hidden_screws_hat_thickness + hidden_screws_depth + 0.6 < total_model_height, "The screw doesn't fit");
     for (offset = hidden_screw_holes_offsets)
     {
         translate(concat(offset, [cloud_inner_frame_depth + model_height[0]]))
@@ -234,8 +271,8 @@ module create_hidden_screw_holes()
                               hidden_screws_hat_thickness, 50);
             if ($preview)
             {
-#circle(d = hidden_screws_anchor_diameter);
-#circle(d = hidden_screws_visible_diameter);
+                # circle(d = hidden_screws_anchor_diameter);
+                # circle(d = hidden_screws_visible_diameter);
             }
         }
     }
@@ -244,8 +281,9 @@ module create_hidden_screw_holes()
 // 2D
 module create_hidden_screw_holes_hardening()
 {
-    for (offset = hidden_screw_holes_offsets) {
-        translate(offset) circle(d=hidden_screws_hat_diameter);
+    for (offset = hidden_screw_holes_offsets)
+    {
+        translate(offset) circle(d = hidden_screws_hat_diameter);
     }
 }
 
@@ -378,11 +416,14 @@ module cloud_inner_frame()
         difference()
         {
             offset(r = -cloud_frame_thickness) create_cloud_inner();
-            offset(r = network_port_wall_thickness) {
+            offset(r = network_port_wall_thickness)
+            {
                 create_network_ports();
                 # per_network_port() {
-                    for (i = [-1:2:1]) {
-                        translate([0, network_screw_offset_y * i, 0]) polygon(hexagon(nut_diameter = network_square_nut_diameter));
+                    for (i = [-1:2:1])
+                    {
+                        translate([ 0, network_screw_offset_y * i, 0 ])
+                            polygon(hexagon(nut_diameter = network_square_nut_diameter));
                     }
                 }
             }
@@ -399,29 +440,35 @@ module create_cloud_frame()
     }
 }
 
-module moon_layers(print, moon_thickness) {
-    if (len(moon_thickness) > 0) {
-        if (print) {
+module moon_layers(print, moon_thickness)
+{
+    if (len(moon_thickness) > 0)
+    {
+        if (print)
+        {
             linear_extrude(moon_thickness[0]) create_moon(moon_how_much);
         }
-        if (len(moon_thickness) > 1) {
-            translate([0, 0, moon_thickness[0]]) moon_layers(!print, [for (i = [1:len(moon_thickness)-1]) moon_thickness[i]]);
+        if (len(moon_thickness) > 1)
+        {
+            translate([ 0, 0, moon_thickness[0] ])
+                moon_layers(!print, [for (i = [1:len(moon_thickness) - 1]) moon_thickness[i]]);
         }
     }
 }
 
 module positioned_moon()
 {
-    if (print_moon) {
-        translate([ 0, 0, model_height[0] + model_height[1] - sun_height ]) sun_positioned() {
+    if (print_moon)
+    {
+        translate([ 0, 0, model_height[0] + model_height[1] - sun_height ]) sun_positioned()
+        {
             moon_layers(true, moon_thickness);
         }
-        translate([ 0, 0, model_height[0] + model_height[1] - sun_height ]) intersection() {
-            sun_positioned()
-                moon_layers(false, moon_thickness);
+        translate([ 0, 0, model_height[0] + model_height[1] - sun_height ]) intersection()
+        {
+            sun_positioned() moon_layers(false, moon_thickness);
             linear_extrude(Sum(moon_thickness)) create_cloud_inner();
         }
-
     }
 }
 
@@ -440,24 +487,20 @@ module create_sun_material(margin = 0, margin_z = 0)
     }
 }
 
-module full_model_cutout()
+module create_network_ports_3d()
 {
-    union()
+    per_network_port()
     {
-        create_hidden_screw_holes();
-        per_network_port()
+        for (i = [0:1])
         {
-            for (i = [0:1])
-            {
-                translate([
-                    0, (i * network_screw_offset_y) - ((1 - i) * network_screw_offset_y),
-                    model_height[0] + model_height[1]
-                ]) rotate([ 0, 180, 0 ])
-                    hexagon_screw(nut_diameter = network_square_nut_diameter, nut_depth = network_square_nut_depth,
-                                  screw_diameter = network_screw_radius, screw_depth = model_height);
-            }
-            linear_extrude(total_model_height) create_network_cutout();
+            translate([
+                0, (i * network_screw_offset_y) - ((1 - i) * network_screw_offset_y),
+                model_height[0] + model_height[1]
+            ]) rotate([ 0, 180, 0 ])
+                hexagon_screw(nut_diameter = network_square_nut_diameter, nut_depth = network_square_nut_depth,
+                              screw_diameter = network_screw_radius, screw_depth = model_height);
         }
+        linear_extrude(total_model_height) create_network_cutout();
     }
 }
 
@@ -511,7 +554,45 @@ module create_union(layer)
                 }
             }
         }
-        full_model_cutout();
+        create_hidden_screw_holes();
+        create_network_ports_3d();
+    }
+}
+
+module create_unibody()
+{
+    difference() {
+        linear_extrude(total_model_height) difference() {
+            create_cloud();
+            create_network_ports();
+        }
+        wall_thickness = (total_model_height - hidden_screws_hat_thickness) / 2;
+        slide_length = hidden_screws_hat_diameter;
+
+        translate([0, 0, total_model_height-hidden_screws_hat_thickness-wall_thickness]) for (offset = hang_screw_holes_offset) {
+            translate([offset, hang_screw_offset_y, 0]) {
+                translate([0, 0, hidden_screws_hat_thickness]) linear_extrude(wall_thickness) hang_on_screw_hole(r_max = hidden_screws_hat_diameter/2, r_min=hidden_screws_diameter/2, height=slide_length);
+                linear_extrude(hidden_screws_hat_thickness) hang_on_screw_hole(r_max = hidden_screws_hat_diameter/2, r_min = hidden_screws_hat_diameter/2, height = slide_length);
+                translate([0, slide_length, -(total_model_height-hidden_screws_hat_thickness-wall_thickness)])if ($preview)
+                {
+                    # circle(d = hidden_screws_anchor_diameter);
+                    # circle(d = hidden_screws_visible_diameter);
+                }
+            }
+        }
+        if (hang_lock_screw_diameter > 0)
+        {
+            min_offset = min(hang_screw_holes_offset);
+            max_offset = max(hang_screw_holes_offset);
+            echo(min_offset, max_offset);
+            for (part = [[min_offset, 180], [max_offset, 0]]) {
+                translate([part[0], slide_length + hang_screw_offset_y - hidden_screws_diameter, total_model_height/2]) rotate([0, 0, part[1]]) # rotate([0, 90, 0]) rotate([0, 0, -90]) translate([0, 0, -hidden_screws_hat_diameter/2]) linear_extrude(200) teardrop_hole(r = hang_lock_screw_diameter/2, angle = 30);
+            }
+        }
+        if ($preview) {
+            # per_network_port() translate([0, slide_length/2, 0]) square(network_square_size + [0, slide_length], center = true);
+        }
+        create_network_ports_3d();
     }
 }
 
@@ -571,30 +652,12 @@ else if (which == 5)
 {
     echo("Screw Reinforcement");
     // TODO: Add nuts?
-    linear_extrude(total_model_height*2) create_hidden_screw_holes_hardening();
+    linear_extrude(total_model_height * 2) create_hidden_screw_holes_hardening();
 }
 else if (which == 6)
 {
-    echo("Cutout mould");
-    linear_extrude(mold_depth) difference()
-    {
-        create_wall_cutout(r = 0.5);
-        create_wall_fastener(r = 0.5);
-        offset(delta = -mold_width) create_wall_cutout(r = 0.5);
-    }
-    translate([ 0, 0, mold_depth ]) linear_extrude(mold_extra_depth) intersection()
-    {
-        create_wall_cutout(r = 0.5);
-        difference()
-        {
-            create_wall_fastener(r = 5, hollow = 4.5);
-            offset(delta = -mold_width) create_wall_cutout(r = 0.5);
-        }
-        /*difference() {
-            create_wall_cutout(r = 5, hollow = 4.5, include_inner = false);
-            create_wall_cutout(r = 2.5);
-        }*/
-    }
+    echo("Unibody");
+    create_unibody();
 }
 else if (which == 7)
 {
@@ -647,4 +710,12 @@ else if (which == 12)
 {
     echo("Sun only moon modifier");
     positioned_moon(moon_how_much);
+}
+else if (which == 13) {
+    linear_extrude(height = 5) hang_on_screw_hole(r_max = 8, r_min = 5, height = 12);
+    translate([0, 0, 5])  linear_extrude(5) hang_on_screw_hole(r_max=8, r_min=8, height=12);
+} else if (which == 14) {
+    teardrop_hole(r = 5, angle = 30);
+    translate([10, 0, 0]) teardrop_hole(r = 5, angle = 40);
+    translate([20, 0, 0]) teardrop_hole(r = 5, angle = 60);
 }
